@@ -3,7 +3,7 @@ const STORAGE_KEY_INVENTORY = 'perfume-os-inventory-v1';
 
 /** @type {Array<{id:string, customer:string, perfume:string, qty:number, price:number, paid:number, date:string, notes:string}>} */
 let sales = loadSales();
-/** @type {Array<{id:string, perfume:string, price:number, unit:string, stock:number, threshold:number}>} */
+/** @type {Array<{id:string, perfume:string, cost:number, price:number, unit:string, stock:number, threshold:number}>} */
 let inventory = loadInventory();
 let currentFilter = 'all';
 let searchTerm = '';
@@ -150,6 +150,11 @@ function soldQtyFor(perfumeName) {
   return sales.reduce((sum, s) => (s.perfume.trim().toLowerCase() === key ? sum + s.qty : sum), 0);
 }
 
+function revenueFor(perfumeName) {
+  const key = perfumeName.trim().toLowerCase();
+  return sales.reduce((sum, s) => (s.perfume.trim().toLowerCase() === key ? sum + s.qty * s.price : sum), 0);
+}
+
 function inventoryRows() {
   return inventory.map((item) => {
     const sold = soldQtyFor(item.perfume);
@@ -189,6 +194,7 @@ function renderInventory() {
 
   renderInventoryStats(rows);
   refreshPerfumeDatalist();
+  renderFinance();
 }
 
 const STATUS_PILL_CLASS = { ok: 'status-paid', low: 'status-partial', out: 'status-owing' };
@@ -217,6 +223,7 @@ function buildInventoryRow(item, sold, available, status) {
 
   tr.innerHTML = `
     <td><input class="editable" data-field="perfume" value="${escapeAttr(item.perfume)}"></td>
+    <td><input class="editable" data-field="cost" type="number" min="0" step="0.01" value="${item.cost || 0}" style="width:90px"></td>
     <td><input class="editable" data-field="price" type="number" min="0" step="0.01" value="${item.price}" style="width:90px"></td>
     <td><select class="editable" data-field="unit">${unitOptionsHtml(unit)}</select></td>
     <td><input class="editable" data-field="stock" type="number" min="0" step="1" value="${item.stock}" style="width:80px"></td>
@@ -241,6 +248,63 @@ function refreshPerfumeDatalist() {
   datalist.innerHTML = inventory.map((i) => `<option value="${escapeAttr(i.perfume)}"></option>`).join('');
 }
 
+// --- Finance (investment, profit, margin) ---
+
+function financeRows() {
+  return inventory.map((item) => {
+    const sold = soldQtyFor(item.perfume);
+    const revenue = revenueFor(item.perfume);
+    const cost = item.cost || 0;
+    const costTotal = sold * cost;
+    const profit = revenue - costTotal;
+    const margin = revenue > 0 ? (profit / revenue) * 100 : 0;
+    return { item, sold, revenue, cost, costTotal, profit, margin };
+  });
+}
+
+function renderFinance() {
+  const rows = financeRows();
+  const financeBody = document.getElementById('financeBody');
+  const financeEmptyState = document.getElementById('financeEmptyState');
+  const financeNote = document.getElementById('financeNote');
+
+  financeBody.innerHTML = '';
+  financeEmptyState.style.display = inventory.length === 0 ? 'block' : 'none';
+
+  rows.forEach(({ item, sold, revenue, cost, profit, margin }) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${escapeAttr(item.perfume)}</td>
+      <td>${money(cost)}</td>
+      <td>${sold} ${unitLabel(item.unit || 'unidad')}</td>
+      <td>${money(revenue)}</td>
+      <td class="cell-owed ${profit >= 0 ? 'zero' : 'some'}">${money(profit)}</td>
+      <td>${revenue > 0 ? margin.toFixed(1) + '%' : '—'}</td>
+    `;
+    financeBody.appendChild(tr);
+  });
+
+  const investment = inventory.reduce((sum, i) => sum + (i.cost || 0) * i.stock, 0);
+  const revenueMatched = rows.reduce((sum, r) => sum + r.revenue, 0);
+  const profitMatched = rows.reduce((sum, r) => sum + r.profit, 0);
+  const marginOverall = revenueMatched > 0 ? (profitMatched / revenueMatched) * 100 : 0;
+
+  const totalRevenueAll = sales.reduce((sum, s) => sum + s.qty * s.price, 0);
+  const unmatchedRevenue = totalRevenueAll - revenueMatched;
+
+  document.getElementById('statInvestment').textContent = money(investment);
+  document.getElementById('statRevenue').textContent = money(totalRevenueAll);
+  document.getElementById('statProfit').textContent = money(profitMatched);
+  document.getElementById('statMargin').textContent = (revenueMatched > 0 ? marginOverall.toFixed(1) : '0') + '%';
+
+  if (unmatchedRevenue > 0.005) {
+    financeNote.style.display = 'block';
+    financeNote.textContent = `${money(unmatchedRevenue)} en ventas no coinciden con ningún producto del inventario y no se incluyen en la utilidad ni el margen.`;
+  } else {
+    financeNote.style.display = 'none';
+  }
+}
+
 inventoryBody.addEventListener('change', (e) => {
   const target = e.target;
   if (!target.classList.contains('editable')) return;
@@ -250,7 +314,7 @@ inventoryBody.addEventListener('change', (e) => {
   const field = target.dataset.field;
 
   if (field === 'stock' || field === 'threshold') item[field] = Math.max(0, parseInt(target.value, 10) || 0);
-  else if (field === 'price') item.price = Math.max(0, parseFloat(target.value) || 0);
+  else if (field === 'price' || field === 'cost') item[field] = Math.max(0, parseFloat(target.value) || 0);
   else item[field] = target.value;
 
   saveInventory();
@@ -309,6 +373,7 @@ itemForm.addEventListener('submit', (e) => {
   const item = {
     id: uid(),
     perfume: document.getElementById('iPerfume').value.trim(),
+    cost: Math.max(0, parseFloat(document.getElementById('iCost').value) || 0),
     price: Math.max(0, parseFloat(document.getElementById('iPrice').value) || 0),
     unit: document.getElementById('iUnit').value,
     stock: Math.max(0, parseInt(document.getElementById('iStock').value, 10) || 0),
@@ -326,8 +391,16 @@ function switchView(view) {
   currentView = view;
   document.getElementById('viewSales').hidden = view !== 'sales';
   document.getElementById('viewInventory').hidden = view !== 'inventory';
+  document.getElementById('viewFinance').hidden = view !== 'finance';
   document.querySelectorAll('.view-tabs .tab').forEach((t) => t.classList.toggle('active', t.dataset.view === view));
-  document.getElementById('btnAdd').textContent = view === 'sales' ? '+ Nueva Venta' : '+ Nuevo Producto';
+
+  const btnAdd = document.getElementById('btnAdd');
+  if (view === 'finance') {
+    btnAdd.style.display = 'none';
+  } else {
+    btnAdd.style.display = '';
+    btnAdd.textContent = view === 'sales' ? '+ Nueva Venta' : '+ Nuevo Producto';
+  }
 }
 
 document.querySelectorAll('.view-tabs .tab').forEach((tab) => {
