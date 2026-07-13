@@ -1,4 +1,4 @@
-const CACHE_NAME = 'perfume-os-v2';
+const CACHE_NAME = 'perfume-os-v4';
 const ASSETS = [
   './',
   './index.html',
@@ -6,6 +6,10 @@ const ASSETS = [
   './script.js',
   './manifest.json',
   './icon.svg',
+  './icon-192.png',
+  './icon-512.png',
+  './icon-512-maskable.png',
+  './icon-180.png',
 ];
 
 self.addEventListener('install', (event) => {

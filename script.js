@@ -3,7 +3,7 @@ const STORAGE_KEY_INVENTORY = 'perfume-os-inventory-v1';
 
 /** @type {Array<{id:string, customer:string, perfume:string, qty:number, price:number, paid:number, date:string, notes:string}>} */
 let sales = loadSales();
-/** @type {Array<{id:string, perfume:string, price:number, stock:number, threshold:number}>} */
+/** @type {Array<{id:string, perfume:string, price:number, unit:string, stock:number, threshold:number}>} */
 let inventory = loadInventory();
 let currentFilter = 'all';
 let searchTerm = '';
@@ -193,17 +193,35 @@ function renderInventory() {
 
 const STATUS_PILL_CLASS = { ok: 'status-paid', low: 'status-partial', out: 'status-owing' };
 const STATUS_PILL_LABEL = { ok: 'OK', low: 'Bajo stock', out: 'Agotado' };
+const UNIT_OPTIONS = [
+  { value: 'unidad', label: 'Unidad' },
+  { value: 'ml', label: 'ml' },
+  { value: 'oz', label: 'oz' },
+  { value: 'gramo', label: 'g' },
+];
+
+function unitOptionsHtml(selected) {
+  return UNIT_OPTIONS.map(
+    (u) => `<option value="${u.value}" ${u.value === selected ? 'selected' : ''}>${u.label}</option>`
+  ).join('');
+}
+
+function unitLabel(unit) {
+  return (UNIT_OPTIONS.find((u) => u.value === unit) || UNIT_OPTIONS[0]).label;
+}
 
 function buildInventoryRow(item, sold, available, status) {
   const tr = document.createElement('tr');
   tr.dataset.id = item.id;
+  const unit = item.unit || 'unidad';
 
   tr.innerHTML = `
     <td><input class="editable" data-field="perfume" value="${escapeAttr(item.perfume)}"></td>
     <td><input class="editable" data-field="price" type="number" min="0" step="0.01" value="${item.price}" style="width:90px"></td>
+    <td><select class="editable" data-field="unit">${unitOptionsHtml(unit)}</select></td>
     <td><input class="editable" data-field="stock" type="number" min="0" step="1" value="${item.stock}" style="width:80px"></td>
-    <td>${sold}</td>
-    <td class="cell-owed ${available > 0 ? 'zero' : 'some'}">${available}</td>
+    <td>${sold} ${unitLabel(unit)}</td>
+    <td class="cell-owed ${available > 0 ? 'zero' : 'some'}">${available} ${unitLabel(unit)}</td>
     <td><input class="editable" data-field="threshold" type="number" min="0" step="1" value="${item.threshold || 0}" style="width:70px"></td>
     <td><span class="status-pill ${STATUS_PILL_CLASS[status]}">${STATUS_PILL_LABEL[status]}</span></td>
     <td class="row-actions"><button class="btn btn-icon btn-danger" data-action="delete-item" title="Eliminar">✕</button></td>
@@ -292,6 +310,7 @@ itemForm.addEventListener('submit', (e) => {
     id: uid(),
     perfume: document.getElementById('iPerfume').value.trim(),
     price: Math.max(0, parseFloat(document.getElementById('iPrice').value) || 0),
+    unit: document.getElementById('iUnit').value,
     stock: Math.max(0, parseInt(document.getElementById('iStock').value, 10) || 0),
     threshold: Math.max(0, parseInt(document.getElementById('iThreshold').value, 10) || 0),
   };

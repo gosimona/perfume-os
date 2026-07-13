@@ -338,6 +338,8 @@ tbody tr:hover { background: rgba(0, 240, 255, 0.04); }
 
 textarea.editable { resize: vertical; min-height: 34px; }
 
+select.editable { cursor: pointer; color-scheme: dark; min-width: 90px; }
+
 .cell-total { color: var(--text); font-weight: 600; }
 .cell-owed { font-weight: 700; }
 .cell-owed.zero { color: var(--green); }
@@ -417,7 +419,7 @@ textarea.editable { resize: vertical; min-height: 34px; }
   letter-spacing: 0.5px;
 }
 
-.modal input, .modal textarea {
+.modal input, .modal textarea, .modal select {
   font-family: var(--font-body);
   font-size: 16px;
   padding: 10px 12px;
@@ -426,9 +428,10 @@ textarea.editable { resize: vertical; min-height: 34px; }
   background: var(--panel);
   color: var(--text);
   text-transform: none;
+  color-scheme: dark;
 }
 
-.modal input:focus, .modal textarea:focus {
+.modal input:focus, .modal textarea:focus, .modal select:focus {
   outline: none;
   border-color: var(--cyan);
   box-shadow: 0 0 10px rgba(0, 240, 255, 0.3);
