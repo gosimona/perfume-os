@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>PERFUME OS — Control de Ventas</title>
+<meta name="description" content="Control de ventas, clientes, pagos y deudas de perfumes.">
+<meta name="theme-color" content="#06060c">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="bg-grid"></div>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark">◆</span>
+    <h1>PERFUME<span>OS</span></h1>
+  </div>
+  <button id="btnAdd" class="btn btn-neon">+ Nueva Venta</button>
+</header>
+
+<nav class="view-tabs">
+  <button class="tab active" data-view="sales">Ventas</button>
+  <button class="tab" data-view="inventory">Inventario</button>
+</nav>
+
+<main class="wrap">
+
+  <section class="view" id="viewSales">
+
+    <section class="stats" id="stats">
+      <div class="stat-card stat-cyan">
+        <span class="stat-label">Ventas totales</span>
+        <span class="stat-value" id="statTotalSales">$0</span>
+      </div>
+      <div class="stat-card stat-green">
+        <span class="stat-label">Cobrado</span>
+        <span class="stat-value" id="statPaid">$0</span>
+      </div>
+      <div class="stat-card stat-pink">
+        <span class="stat-label">Pendiente por cobrar</span>
+        <span class="stat-value" id="statOwed">$0</span>
+      </div>
+      <div class="stat-card stat-purple">
+        <span class="stat-label">Clientes con deuda</span>
+        <span class="stat-value" id="statDebtors">0</span>
+      </div>
+    </section>
+
+    <section class="toolbar">
+      <div class="search-box">
+        <span class="search-icon">⌕</span>
+        <input type="text" id="searchInput" placeholder="Buscar cliente o perfume...">
+      </div>
+      <div class="filter-chips" id="filterChips">
+        <button class="chip active" data-filter="all">Todos</button>
+        <button class="chip" data-filter="paid">Pagado</button>
+        <button class="chip" data-filter="partial">Parcial</button>
+        <button class="chip" data-filter="owing">Debe</button>
+      </div>
+      <div class="io-actions">
+        <button id="btnExport" class="btn btn-ghost" title="Descargar respaldo JSON">Exportar</button>
+        <label class="btn btn-ghost" title="Restaurar respaldo JSON">
+          Importar
+          <input type="file" id="importFile" accept="application/json" hidden>
+        </label>
+      </div>
+    </section>
+
+    <section class="table-wrap">
+      <table id="salesTable">
+        <thead>
+          <tr>
+            <th>Cliente</th>
+            <th>Perfume</th>
+            <th>Cant.</th>
+            <th>Precio</th>
+            <th>Total</th>
+            <th>Pagó</th>
+            <th>Debe</th>
+            <th>Estado</th>
+            <th>Fecha</th>
+            <th>Notas</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="salesBody"></tbody>
+      </table>
+      <p class="empty-state" id="emptyState">Aún no hay ventas registradas. Toca <strong>+ Nueva Venta</strong> para empezar.</p>
+    </section>
+
+  </section>
+
+  <section class="view" id="viewInventory" hidden>
+
+    <section class="stats">
+      <div class="stat-card stat-cyan">
+        <span class="stat-label">Productos</span>
+        <span class="stat-value" id="statProducts">0</span>
+      </div>
+      <div class="stat-card stat-green">
+        <span class="stat-label">Unidades disponibles</span>
+        <span class="stat-value" id="statUnits">0</span>
+      </div>
+      <div class="stat-card stat-amber">
+        <span class="stat-label">Bajo stock</span>
+        <span class="stat-value" id="statLow">0</span>
+      </div>
+      <div class="stat-card stat-pink">
+        <span class="stat-label">Agotados</span>
+        <span class="stat-value" id="statOut">0</span>
+      </div>
+    </section>
+
+    <section class="toolbar">
+      <div class="search-box">
+        <span class="search-icon">⌕</span>
+        <input type="text" id="invSearchInput" placeholder="Buscar producto...">
+      </div>
+      <div class="filter-chips" id="invFilterChips">
+        <button class="chip active" data-filter="all">Todos</button>
+        <button class="chip" data-filter="ok">OK</button>
+        <button class="chip" data-filter="low">Bajo stock</button>
+        <button class="chip" data-filter="out">Agotado</button>
+      </div>
+    </section>
+
+    <section class="table-wrap">
+      <table id="inventoryTable">
+        <thead>
+          <tr>
+            <th>Perfume</th>
+            <th>Precio</th>
+            <th>Stock inicial</th>
+            <th>Vendido</th>
+            <th>Disponible</th>
+            <th>Umbral bajo</th>
+            <th>Estado</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="inventoryBody"></tbody>
+      </table>
+      <p class="empty-state" id="invEmptyState">Aún no hay productos en inventario. Toca <strong>+ Nuevo Producto</strong> para agregar uno.</p>
+    </section>
+
+  </section>
+
+</main>
+
+<datalist id="perfumeList"></datalist>
+
+<div class="modal-backdrop" id="modalBackdrop">
+  <form class="modal" id="saleForm">
+    <h2 id="modalTitle">Nueva Venta</h2>
+    <input type="hidden" id="saleId">
+
+    <label>Cliente
+      <input type="text" id="fCustomer" required placeholder="Nombre del cliente">
+    </label>
+
+    <label>Perfume
+      <input type="text" id="fPerfume" required placeholder="Ej: Bleu de Chanel 100ml" list="perfumeList">
+    </label>
+
+    <div class="row-2">
+      <label>Cantidad
+        <input type="number" id="fQty" min="1" step="1" value="1" required>
+      </label>
+      <label>Precio unitario
+        <input type="number" id="fPrice" min="0" step="0.01" required placeholder="0.00">
+      </label>
+    </div>
+
+    <label>Monto pagado
+      <input type="number" id="fPaid" min="0" step="0.01" value="0">
+    </label>
+
+    <label>Fecha
+      <input type="date" id="fDate" required>
+    </label>
+
+    <label>Notas
+      <textarea id="fNotes" rows="2" placeholder="Opcional"></textarea>
+    </label>
+
+    <div class="modal-actions">
+      <button type="button" class="btn btn-ghost" id="btnCancel">Cancelar</button>
+      <button type="submit" class="btn btn-neon">Guardar</button>
+    </div>
+  </form>
+</div>
+
+<div class="modal-backdrop" id="itemModalBackdrop">
+  <form class="modal" id="itemForm">
+    <h2>Nuevo Producto</h2>
+
+    <label>Perfume
+      <input type="text" id="iPerfume" required placeholder="Ej: Bleu de Chanel 100ml">
+    </label>
+
+    <div class="row-2">
+      <label>Precio
+        <input type="number" id="iPrice" min="0" step="0.01" required placeholder="0.00">
+      </label>
+      <label>Stock inicial
+        <input type="number" id="iStock" min="0" step="1" value="1" required>
+      </label>
+    </div>
+
+    <label>Umbral de bajo stock
+      <input type="number" id="iThreshold" min="0" step="1" value="3">
+    </label>
+
+    <div class="modal-actions">
+      <button type="button" class="btn btn-ghost" id="btnCancelItem">Cancelar</button>
+      <button type="submit" class="btn btn-neon">Guardar</button>
+    </div>
+  </form>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
