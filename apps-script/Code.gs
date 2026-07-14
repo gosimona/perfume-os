@@ -1,15 +1,29 @@
 // PERFUME OS — puente de sincronización con Google Sheets.
-// Pega este código en Extensions > Apps Script de tu hoja de cálculo,
-// reemplaza TOKEN por la clave que te dio Claude, y despliega como Web App
-// (Execute as: Me, Who has access: Anyone). Ver README para el paso a paso.
+//
+// Opción A (Extensions > Apps Script): pega este código tal cual, deja
+// SHEET_ID en blanco, y despliega como Web App.
+//
+// Opción B (script.new, si Extensions > Apps Script te da error): crea el
+// proyecto en https://script.new, pega este código, y pon en SHEET_ID el
+// ID de tu hoja (la parte de la URL entre /d/ y /edit). Luego despliega
+// igual como Web App.
+//
+// En ambos casos: reemplaza TOKEN por la clave que te dio Claude y
+// despliega como Web App (Execute as: Me, Who has access: Anyone).
+// Ver README para el paso a paso.
 
 var TOKEN = 'FR5QUHm1LbbpjHk02xo-VHzC';
+var SHEET_ID = ''; // solo necesario con la Opción B (script.new)
 
 var SALES_HEADERS = ['id', 'customer', 'perfume', 'qty', 'price', 'paid', 'date', 'notes'];
 var INVENTORY_HEADERS = ['id', 'perfume', 'cost', 'price', 'unit', 'stock', 'threshold'];
 
+function getSpreadsheet_() {
+  return SHEET_ID ? SpreadsheetApp.openById(SHEET_ID) : SpreadsheetApp.getActiveSpreadsheet();
+}
+
 function getSheet_(name, headers) {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var ss = getSpreadsheet_();
   var sheet = ss.getSheetByName(name);
   if (!sheet) {
     sheet = ss.insertSheet(name);

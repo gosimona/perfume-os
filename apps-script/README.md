@@ -15,6 +15,24 @@ guarda todo en esa hoja de cálculo y se sincroniza solo entre tu celular y tu c
 3. Pega todo el contenido del archivo [`Code.gs`](Code.gs) de esta carpeta.
 4. Guarda (ícono de disquete o Ctrl+S).
 
+### Si "Extensiones > Apps Script" te da un error de Google Drive
+
+A veces Google Sheets falla al abrir el editor desde el menú Extensiones (error tipo
+"No se pudo abrir el archivo en este momento"). Si te pasa:
+
+1. Primero prueba lo simple: recarga la hoja (F5), espera a que diga el nombre del archivo
+   arriba a la izquierda (no "Hoja de cálculo sin título" con el reloj de sincronización), y
+   vuelve a intentar Extensiones > Apps Script. Si sigue fallando, prueba en una ventana de
+   incógnito (por si una extensión del navegador está interfiriendo).
+2. Si sigue sin funcionar, usa esta alternativa:
+   - Entra a **[script.new](https://script.new)** — esto crea un proyecto de Apps Script nuevo
+     directamente, sin pasar por el menú de la hoja.
+   - Pega el código de `Code.gs` igual que antes.
+   - Copia el **ID de tu hoja**: es la parte de la URL de tu Sheet entre `/d/` y `/edit`,
+     por ejemplo en `https://docs.google.com/spreadsheets/d/1AbC...XYZ/edit` el ID es `1AbC...XYZ`.
+   - En el código, pon ese ID en la línea `var SHEET_ID = '';` (entre las comillas).
+   - Continúa con el paso 3 (publicar como Web App) normalmente.
+
 ## 3. Publica el script como Web App
 
 1. Arriba a la derecha, clic en **Implementar > Nueva implementación**.
