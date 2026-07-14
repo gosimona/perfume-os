@@ -1,5 +1,6 @@
 const STORAGE_KEY = 'perfume-os-sales-v1';
 const STORAGE_KEY_INVENTORY = 'perfume-os-inventory-v1';
+const STORAGE_KEY_SYNC = 'perfume-os-sync-v1';
 
 /** @type {Array<{id:string, customer:string, perfume:string, qty:number, price:number, paid:number, date:string, notes:string}>} */
 let sales = loadSales();
@@ -10,6 +11,11 @@ let searchTerm = '';
 let currentView = 'sales';
 let invFilter = 'all';
 let invSearchTerm = '';
+
+let syncConfig = loadSyncConfig();
+let syncStatus = 'idle'; // idle | syncing | connected | error
+let pendingPush = false;
+let pushTimer = null;
 
 const salesBody = document.getElementById('salesBody');
 const emptyState = document.getElementById('emptyState');
@@ -46,6 +52,20 @@ function loadInventory() {
 
 function saveInventory() {
   localStorage.setItem(STORAGE_KEY_INVENTORY, JSON.stringify(inventory));
+}
+
+function loadSyncConfig() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_SYNC);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveSyncConfig() {
+  if (syncConfig) localStorage.setItem(STORAGE_KEY_SYNC, JSON.stringify(syncConfig));
+  else localStorage.removeItem(STORAGE_KEY_SYNC);
 }
 
 function uid() {
@@ -319,6 +339,7 @@ inventoryBody.addEventListener('change', (e) => {
 
   saveInventory();
   renderInventory();
+  scheduleSync();
 });
 
 inventoryBody.addEventListener('click', (e) => {
@@ -332,6 +353,7 @@ inventoryBody.addEventListener('click', (e) => {
     inventory = inventory.filter((i) => i.id !== item.id);
     saveInventory();
     renderInventory();
+    scheduleSync();
   }
 });
 
@@ -383,6 +405,7 @@ itemForm.addEventListener('submit', (e) => {
   saveInventory();
   closeItemModal();
   renderInventory();
+  scheduleSync();
 });
 
 // --- View tabs (Ventas / Inventario) ---
@@ -428,6 +451,7 @@ salesBody.addEventListener('change', (e) => {
 
   saveSales();
   render();
+  scheduleSync();
 });
 
 salesBody.addEventListener('click', (e) => {
@@ -442,6 +466,7 @@ salesBody.addEventListener('click', (e) => {
       sales = sales.filter((s) => s.id !== sale.id);
       saveSales();
       render();
+      scheduleSync();
     }
   } else if (btn.dataset.action === 'cycle-status') {
     const total = sale.qty * sale.price;
@@ -451,6 +476,7 @@ salesBody.addEventListener('click', (e) => {
     else sale.paid = total; // partial -> paid
     saveSales();
     render();
+    scheduleSync();
   }
 });
 
@@ -508,6 +534,7 @@ saleForm.addEventListener('submit', (e) => {
   saveSales();
   closeModal();
   render();
+  scheduleSync();
 });
 
 // --- Export / Import (local backup) ---
@@ -539,6 +566,7 @@ document.getElementById('importFile').addEventListener('change', (e) => {
       saveSales();
       saveInventory();
       render();
+      scheduleSync();
     } catch {
       alert('No se pudo leer el archivo. Asegúrate de que sea un respaldo JSON válido de PerfumeOS.');
     }
@@ -547,9 +575,185 @@ document.getElementById('importFile').addEventListener('change', (e) => {
   e.target.value = '';
 });
 
+// --- Sync with Google Sheets (Apps Script bridge) ---
+
+const syncModalBackdrop = document.getElementById('syncModalBackdrop');
+const syncForm = document.getElementById('syncForm');
+const syncDot = document.getElementById('syncDot');
+const syncStatusLine = document.getElementById('syncStatusLine');
+
+function normalizeSale(s) {
+  return {
+    id: s.id || uid(),
+    customer: s.customer || '',
+    perfume: s.perfume || '',
+    qty: Math.max(1, Number(s.qty) || 1),
+    price: Math.max(0, Number(s.price) || 0),
+    paid: Math.max(0, Number(s.paid) || 0),
+    date: s.date || '',
+    notes: s.notes || '',
+  };
+}
+
+function normalizeItem(i) {
+  return {
+    id: i.id || uid(),
+    perfume: i.perfume || '',
+    cost: Math.max(0, Number(i.cost) || 0),
+    price: Math.max(0, Number(i.price) || 0),
+    unit: i.unit || 'unidad',
+    stock: Math.max(0, Number(i.stock) || 0),
+    threshold: Math.max(0, Number(i.threshold) || 0),
+  };
+}
+
+function mergeById(remoteArr, localArr) {
+  const byId = new Map();
+  remoteArr.forEach((r) => byId.set(r.id, r));
+  localArr.forEach((l) => {
+    if (!byId.has(l.id)) byId.set(l.id, l);
+  });
+  return Array.from(byId.values());
+}
+
+function setSyncStatus(status) {
+  syncStatus = status;
+  syncDot.className = 'sync-dot' + (status !== 'idle' ? ' ' + status : '');
+  const labels = {
+    idle: syncConfig ? 'Configurado, sin sincronizar aún.' : 'Sin configurar todavía.',
+    syncing: 'Sincronizando…',
+    connected: 'Conectado. Última sincronización: ' + new Date().toLocaleTimeString('es-MX'),
+    error: 'No se pudo conectar. Tus datos siguen guardados en este dispositivo.',
+  };
+  syncStatusLine.textContent = labels[status] || '';
+}
+
+async function pushToSheet() {
+  if (!syncConfig) return;
+  setSyncStatus('syncing');
+  try {
+    const res = await fetch(syncConfig.url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ token: syncConfig.token, sales, inventory }),
+    });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'push failed');
+    pendingPush = false;
+    setSyncStatus('connected');
+  } catch {
+    setSyncStatus('error');
+  }
+}
+
+async function pullFromSheet() {
+  if (!syncConfig) return;
+  setSyncStatus('syncing');
+  try {
+    const res = await fetch(`${syncConfig.url}?token=${encodeURIComponent(syncConfig.token)}`);
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'pull failed');
+    sales = (data.sales || []).map(normalizeSale);
+    inventory = (data.inventory || []).map(normalizeItem);
+    saveSales();
+    saveInventory();
+    render();
+    setSyncStatus('connected');
+  } catch {
+    setSyncStatus('error');
+  }
+}
+
+async function connectSync(url, token) {
+  syncConfig = { url, token };
+  saveSyncConfig();
+  setSyncStatus('syncing');
+  try {
+    const res = await fetch(`${url}?token=${encodeURIComponent(token)}`);
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'connect failed');
+
+    const remoteSales = (data.sales || []).map(normalizeSale);
+    const remoteInventory = (data.inventory || []).map(normalizeItem);
+
+    sales = mergeById(remoteSales, sales);
+    inventory = mergeById(remoteInventory, inventory);
+    saveSales();
+    saveInventory();
+    render();
+
+    await pushToSheet();
+  } catch {
+    setSyncStatus('error');
+  }
+}
+
+function disconnectSync() {
+  syncConfig = null;
+  saveSyncConfig();
+  pendingPush = false;
+  setSyncStatus('idle');
+}
+
+function scheduleSync() {
+  if (!syncConfig) return;
+  pendingPush = true;
+  clearTimeout(pushTimer);
+  pushTimer = setTimeout(() => {
+    pushToSheet();
+  }, 900);
+}
+
+async function syncTick() {
+  if (!syncConfig || document.hidden) return;
+  if (pendingPush) {
+    await pushToSheet();
+    if (pendingPush) return; // still failing (offline) — don't let a pull clobber unsynced local edits
+  }
+  await pullFromSheet();
+}
+
+setInterval(syncTick, 10000);
+window.addEventListener('online', syncTick);
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) syncTick();
+});
+
+document.getElementById('btnSync').addEventListener('click', () => {
+  document.getElementById('syncUrlInput').value = syncConfig ? syncConfig.url : '';
+  document.getElementById('syncTokenInput').value = syncConfig ? syncConfig.token : 'FR5QUHm1LbbpjHk02xo-VHzC';
+  syncModalBackdrop.classList.add('open');
+});
+
+document.getElementById('btnSyncCancel').addEventListener('click', () => {
+  syncModalBackdrop.classList.remove('open');
+});
+
+syncModalBackdrop.addEventListener('click', (e) => {
+  if (e.target === syncModalBackdrop) syncModalBackdrop.classList.remove('open');
+});
+
+document.getElementById('btnSyncDisconnect').addEventListener('click', () => {
+  if (confirm('Esto deja de sincronizar este dispositivo con Google Sheets. Tus datos locales no se borran.')) {
+    disconnectSync();
+    syncModalBackdrop.classList.remove('open');
+  }
+});
+
+syncForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const url = document.getElementById('syncUrlInput').value.trim();
+  const token = document.getElementById('syncTokenInput').value.trim();
+  if (!url || !token) return;
+  await connectSync(url, token);
+  syncModalBackdrop.classList.remove('open');
+});
+
 // --- Init ---
 
 render();
+setSyncStatus(syncStatus);
+if (syncConfig) syncTick();
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {

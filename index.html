@@ -27,7 +27,10 @@
     <span class="brand-mark">◆</span>
     <h1>PERFUME<span>OS</span></h1>
   </div>
-  <button id="btnAdd" class="btn btn-neon">+ Nueva Venta</button>
+  <div class="topbar-actions">
+    <button id="btnSync" class="btn btn-ghost btn-icon" title="Sincronización con Google Sheets"><span class="sync-dot" id="syncDot"></span>⚙</button>
+    <button id="btnAdd" class="btn btn-neon">+ Nueva Venta</button>
+  </div>
 </header>
 
 <nav class="view-tabs">
@@ -285,6 +288,31 @@
     <div class="modal-actions">
       <button type="button" class="btn btn-ghost" id="btnCancelItem">Cancelar</button>
       <button type="submit" class="btn btn-neon">Guardar</button>
+    </div>
+  </form>
+</div>
+
+<div class="modal-backdrop" id="syncModalBackdrop">
+  <form class="modal" id="syncForm">
+    <h2>Sincronización con Google Sheets</h2>
+    <p class="sync-status-line" id="syncStatusLine">Sin configurar todavía.</p>
+
+    <label>URL de sincronización (Apps Script)
+      <input type="url" id="syncUrlInput" placeholder="https://script.google.com/macros/s/AKfycb.../exec">
+    </label>
+
+    <label>Clave/token
+      <input type="text" id="syncTokenInput" placeholder="Token del Apps Script">
+    </label>
+
+    <p class="sync-help">¿No la has configurado? Sigue los pasos en <code>apps-script/README.md</code> del repositorio.</p>
+
+    <div class="modal-actions sync-modal-actions">
+      <button type="button" class="btn btn-danger" id="btnSyncDisconnect">Quitar sincronización</button>
+      <div class="sync-modal-actions-right">
+        <button type="button" class="btn btn-ghost" id="btnSyncCancel">Cerrar</button>
+        <button type="submit" class="btn btn-neon">Guardar y conectar</button>
+      </div>
     </div>
   </form>
 </div>

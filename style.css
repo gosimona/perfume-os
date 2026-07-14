@@ -80,6 +80,56 @@ body {
   text-shadow: 0 0 10px var(--cyan), 0 0 24px var(--cyan);
 }
 
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.sync-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-dim);
+  margin-right: 6px;
+  box-shadow: none;
+}
+
+.sync-dot.connected { background: var(--green); box-shadow: 0 0 6px var(--green); }
+.sync-dot.syncing { background: var(--amber); box-shadow: 0 0 6px var(--amber); animation: sync-pulse 1s ease-in-out infinite; }
+.sync-dot.error { background: var(--pink); box-shadow: 0 0 6px var(--pink); }
+
+@keyframes sync-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.sync-status-line {
+  font-size: 14px;
+  color: var(--text-dim);
+  margin: -6px 0 4px;
+}
+
+.sync-help {
+  font-size: 13px;
+  color: var(--text-dim);
+  margin: -4px 0 0;
+}
+
+.sync-help code {
+  color: var(--cyan);
+}
+
+.sync-modal-actions {
+  justify-content: space-between;
+}
+
+.sync-modal-actions-right {
+  display: flex;
+  gap: 10px;
+}
+
 /* Buttons */
 .btn {
   font-family: var(--font-display);

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'perfume-os-v5';
+const CACHE_NAME = 'perfume-os-v6';
 const ASSETS = [
   './',
   './index.html',
