@@ -12,7 +12,7 @@
 // despliega como Web App (Execute as: Me, Who has access: Anyone).
 // Ver README para el paso a paso.
 
-var TOKEN = 'FR5QUHm1LbbpjHk02xo-VHzC';
+var TOKEN = 'PON_AQUI_TU_TOKEN'; // pídeselo a Claude o genera el tuyo — no dejes este valor de ejemplo
 var SHEET_ID = ''; // solo necesario con la Opción B (script.new)
 
 var SALES_HEADERS = ['id', 'customer', 'perfume', 'qty', 'price', 'paid', 'date', 'notes'];

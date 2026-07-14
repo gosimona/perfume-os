@@ -13,7 +13,10 @@ guarda todo en esa hoja de cálculo y se sincroniza solo entre tu celular y tu c
 1. En la hoja, ve a **Extensiones > Apps Script**.
 2. Borra el contenido de `Code.gs` que aparece por defecto.
 3. Pega todo el contenido del archivo [`Code.gs`](Code.gs) de esta carpeta.
-4. Guarda (ícono de disquete o Ctrl+S).
+4. Reemplaza `PON_AQUI_TU_TOKEN` por una clave propia (cualquier texto largo al azar que
+   tú elijas — piensa en ella como la contraseña de tus datos). Vas a usar esa misma clave
+   en el paso 4 de la siguiente sección.
+5. Guarda (ícono de disquete o Ctrl+S).
 
 ### Si "Extensiones > Apps Script" te da un error de Google Drive
 
@@ -49,7 +52,7 @@ A veces Google Sheets falla al abrir el editor desde el menú Extensiones (error
 1. Abre PERFUME OS en tu celular o computadora.
 2. Toca el ícono de engranaje (⚙) junto al logo.
 3. Pega la URL del paso anterior en "URL de sincronización".
-4. La clave/token ya viene prellenada — déjala como está.
+4. Pega la misma clave que pusiste en `Code.gs` en el campo "Clave/token".
 5. Guarda. Debería decir "Conectado" y en unos segundos tus datos actuales suben a la hoja.
 
 Repite el paso 4 en cada dispositivo (celular, computadora) usando la **misma URL**.

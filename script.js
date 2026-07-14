@@ -721,7 +721,7 @@ document.addEventListener('visibilitychange', () => {
 
 document.getElementById('btnSync').addEventListener('click', () => {
   document.getElementById('syncUrlInput').value = syncConfig ? syncConfig.url : '';
-  document.getElementById('syncTokenInput').value = syncConfig ? syncConfig.token : 'FR5QUHm1LbbpjHk02xo-VHzC';
+  document.getElementById('syncTokenInput').value = syncConfig ? syncConfig.token : '';
   syncModalBackdrop.classList.add('open');
 });
 
