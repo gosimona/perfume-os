@@ -1,16 +1,20 @@
 const STORAGE_KEY = 'perfume-os-sales-v1';
 const STORAGE_KEY_INVENTORY = 'perfume-os-inventory-v1';
+const STORAGE_KEY_ORDERS = 'perfume-os-orders-v1';
 const STORAGE_KEY_SYNC = 'perfume-os-sync-v1';
 
 /** @type {Array<{id:string, customer:string, perfume:string, qty:number, price:number, paid:number, date:string, notes:string}>} */
 let sales = loadSales();
 /** @type {Array<{id:string, perfume:string, cost:number, price:number, unit:string, stock:number, threshold:number}>} */
 let inventory = loadInventory();
+/** @type {Array<{id:string, customer:string, perfume:string, qty:number, price:number, date:string, notes:string}>} */
+let orders = loadOrders();
 let currentFilter = 'all';
 let searchTerm = '';
 let currentView = 'sales';
 let invFilter = 'all';
 let invSearchTerm = '';
+let orderSearchTerm = '';
 
 let syncConfig = loadSyncConfig();
 let syncStatus = 'idle'; // idle | syncing | connected | error
@@ -27,6 +31,11 @@ const inventoryBody = document.getElementById('inventoryBody');
 const invEmptyState = document.getElementById('invEmptyState');
 const itemModalBackdrop = document.getElementById('itemModalBackdrop');
 const itemForm = document.getElementById('itemForm');
+
+const ordersBody = document.getElementById('ordersBody');
+const ordersEmptyState = document.getElementById('ordersEmptyState');
+const orderModalBackdrop = document.getElementById('orderModalBackdrop');
+const orderForm = document.getElementById('orderForm');
 
 function loadSales() {
   try {
@@ -52,6 +61,19 @@ function loadInventory() {
 
 function saveInventory() {
   localStorage.setItem(STORAGE_KEY_INVENTORY, JSON.stringify(inventory));
+}
+
+function loadOrders() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_ORDERS);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveOrders() {
+  localStorage.setItem(STORAGE_KEY_ORDERS, JSON.stringify(orders));
 }
 
 function loadSyncConfig() {
@@ -113,6 +135,7 @@ function render() {
 
   renderStats();
   renderInventory();
+  renderOrders();
 }
 
 function buildRow(sale) {
@@ -325,6 +348,145 @@ function renderFinance() {
   }
 }
 
+// --- Orders (encargos) ---
+
+function renderOrders() {
+  const term = orderSearchTerm.trim().toLowerCase();
+  const filtered = orders.filter((o) => {
+    return !term || o.customer.toLowerCase().includes(term) || o.perfume.toLowerCase().includes(term);
+  });
+
+  ordersBody.innerHTML = '';
+  ordersEmptyState.style.display = orders.length === 0 ? 'block' : 'none';
+  ordersEmptyState.textContent = orders.length === 0
+    ? 'Aún no hay encargos. Toca + Nuevo Encargo para agregar uno.'
+    : '';
+
+  if (orders.length > 0 && filtered.length === 0) {
+    ordersEmptyState.style.display = 'block';
+    ordersEmptyState.textContent = 'Ningún encargo coincide con tu búsqueda.';
+  }
+
+  filtered.forEach((order) => {
+    ordersBody.appendChild(buildOrderRow(order));
+  });
+
+  const totalValue = orders.reduce((sum, o) => sum + o.qty * o.price, 0);
+  document.getElementById('statOrdersPending').textContent = orders.length;
+  document.getElementById('statOrdersValue').textContent = money(totalValue);
+}
+
+function buildOrderRow(order) {
+  const tr = document.createElement('tr');
+  tr.dataset.id = order.id;
+  const total = order.qty * order.price;
+
+  tr.innerHTML = `
+    <td><input class="editable" data-field="customer" value="${escapeAttr(order.customer)}"></td>
+    <td><input class="editable" data-field="perfume" value="${escapeAttr(order.perfume)}" list="perfumeList"></td>
+    <td><input class="editable" data-field="qty" type="number" min="1" step="1" value="${order.qty}" style="width:64px"></td>
+    <td><input class="editable" data-field="price" type="number" min="0" step="0.01" value="${order.price}" style="width:90px"></td>
+    <td class="cell-total">${money(total)}</td>
+    <td><input class="editable" data-field="date" type="date" value="${order.date}" style="width:140px"></td>
+    <td><input class="editable" data-field="notes" value="${escapeAttr(order.notes || '')}" placeholder="—"></td>
+    <td class="row-actions">
+      <button class="btn btn-icon btn-success" data-action="deliver" title="Entregado — pasar a Ventas">✓</button>
+      <button class="btn btn-icon btn-danger" data-action="delete-order" title="Eliminar">✕</button>
+    </td>
+  `;
+  return tr;
+}
+
+ordersBody.addEventListener('change', (e) => {
+  const target = e.target;
+  if (!target.classList.contains('editable')) return;
+  const tr = target.closest('tr');
+  const order = orders.find((o) => o.id === tr.dataset.id);
+  if (!order) return;
+  const field = target.dataset.field;
+
+  if (field === 'qty') order.qty = Math.max(1, parseInt(target.value, 10) || 1);
+  else if (field === 'price') order.price = Math.max(0, parseFloat(target.value) || 0);
+  else order[field] = target.value;
+
+  saveOrders();
+  renderOrders();
+  scheduleSync();
+});
+
+ordersBody.addEventListener('click', (e) => {
+  const btn = e.target.closest('button');
+  if (!btn) return;
+  const tr = btn.closest('tr');
+  const order = orders.find((o) => o.id === tr.dataset.id);
+  if (!order) return;
+
+  if (btn.dataset.action === 'delete-order') {
+    if (confirm(`¿Eliminar el encargo de "${order.customer}" (${order.perfume})?`)) {
+      orders = orders.filter((o) => o.id !== order.id);
+      saveOrders();
+      renderOrders();
+      scheduleSync();
+    }
+  } else if (btn.dataset.action === 'deliver') {
+    sales.unshift({
+      id: uid(),
+      customer: order.customer,
+      perfume: order.perfume,
+      qty: order.qty,
+      price: order.price,
+      paid: 0,
+      date: new Date().toISOString().slice(0, 10),
+      notes: order.notes,
+    });
+    orders = orders.filter((o) => o.id !== order.id);
+    saveSales();
+    saveOrders();
+    render();
+    scheduleSync();
+  }
+});
+
+document.getElementById('orderSearchInput').addEventListener('input', (e) => {
+  orderSearchTerm = e.target.value;
+  renderOrders();
+});
+
+document.getElementById('btnCancelOrder').addEventListener('click', closeOrderModal);
+orderModalBackdrop.addEventListener('click', (e) => {
+  if (e.target === orderModalBackdrop) closeOrderModal();
+});
+
+function openOrderModal() {
+  orderForm.reset();
+  document.getElementById('oQty').value = 1;
+  document.getElementById('oDate').value = new Date().toISOString().slice(0, 10);
+  orderModalBackdrop.classList.add('open');
+  document.getElementById('oCustomer').focus();
+}
+
+function closeOrderModal() {
+  orderModalBackdrop.classList.remove('open');
+}
+
+orderForm.addEventListener('submit', (e) => {
+  e.preventDefault();
+  const order = {
+    id: uid(),
+    customer: document.getElementById('oCustomer').value.trim(),
+    perfume: document.getElementById('oPerfume').value.trim(),
+    qty: Math.max(1, parseInt(document.getElementById('oQty').value, 10) || 1),
+    price: Math.max(0, parseFloat(document.getElementById('oPrice').value) || 0),
+    date: document.getElementById('oDate').value,
+    notes: document.getElementById('oNotes').value.trim(),
+  };
+  orders.unshift(order);
+  saveOrders();
+  closeOrderModal();
+  renderOrders();
+  scheduleSync();
+});
+
 inventoryBody.addEventListener('change', (e) => {
   const target = e.target;
   if (!target.classList.contains('editable')) return;
@@ -410,10 +572,17 @@ itemForm.addEventListener('submit', (e) => {
 
 // --- View tabs (Ventas / Inventario) ---
 
+const ADD_BUTTON_LABELS = {
+  sales: '+ Nueva Venta',
+  inventory: '+ Nuevo Producto',
+  orders: '+ Nuevo Encargo',
+};
+
 function switchView(view) {
   currentView = view;
   document.getElementById('viewSales').hidden = view !== 'sales';
   document.getElementById('viewInventory').hidden = view !== 'inventory';
+  document.getElementById('viewOrders').hidden = view !== 'orders';
   document.getElementById('viewFinance').hidden = view !== 'finance';
   document.querySelectorAll('.view-tabs .tab').forEach((t) => t.classList.toggle('active', t.dataset.view === view));
 
@@ -422,7 +591,7 @@ function switchView(view) {
     btnAdd.style.display = 'none';
   } else {
     btnAdd.style.display = '';
-    btnAdd.textContent = view === 'sales' ? '+ Nueva Venta' : '+ Nuevo Producto';
+    btnAdd.textContent = ADD_BUTTON_LABELS[view];
   }
 }
 
@@ -432,6 +601,7 @@ document.querySelectorAll('.view-tabs .tab').forEach((tab) => {
 
 document.getElementById('btnAdd').addEventListener('click', () => {
   if (currentView === 'sales') openModal();
+  else if (currentView === 'orders') openOrderModal();
   else openItemModal();
 });
 
@@ -540,7 +710,7 @@ saleForm.addEventListener('submit', (e) => {
 // --- Export / Import (local backup) ---
 
 document.getElementById('btnExport').addEventListener('click', () => {
-  const backup = { sales, inventory };
+  const backup = { sales, inventory, orders };
   const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -559,12 +729,15 @@ document.getElementById('importFile').addEventListener('change', (e) => {
       const imported = JSON.parse(reader.result);
       const importedSales = Array.isArray(imported) ? imported : imported.sales;
       const importedInventory = Array.isArray(imported) ? [] : imported.inventory;
+      const importedOrders = Array.isArray(imported) ? [] : imported.orders;
       if (!Array.isArray(importedSales)) throw new Error('formato inválido');
-      if ((sales.length > 0 || inventory.length > 0) && !confirm('Esto reemplazará las ventas e inventario actuales con los del archivo. ¿Continuar?')) return;
+      if ((sales.length > 0 || inventory.length > 0 || orders.length > 0) && !confirm('Esto reemplazará las ventas, inventario y encargos actuales con los del archivo. ¿Continuar?')) return;
       sales = importedSales;
       inventory = Array.isArray(importedInventory) ? importedInventory : [];
+      orders = Array.isArray(importedOrders) ? importedOrders : [];
       saveSales();
       saveInventory();
+      saveOrders();
       render();
       scheduleSync();
     } catch {
@@ -607,6 +780,18 @@ function normalizeItem(i) {
   };
 }
 
+function normalizeOrder(o) {
+  return {
+    id: o.id || uid(),
+    customer: o.customer || '',
+    perfume: o.perfume || '',
+    qty: Math.max(1, Number(o.qty) || 1),
+    price: Math.max(0, Number(o.price) || 0),
+    date: o.date || '',
+    notes: o.notes || '',
+  };
+}
+
 function mergeById(remoteArr, localArr) {
   const byId = new Map();
   remoteArr.forEach((r) => byId.set(r.id, r));
@@ -635,7 +820,7 @@ async function pushToSheet() {
     const res = await fetch(syncConfig.url, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ token: syncConfig.token, sales, inventory }),
+      body: JSON.stringify({ token: syncConfig.token, sales, inventory, orders }),
     });
     const data = await res.json();
     if (!data.ok) throw new Error(data.error || 'push failed');
@@ -655,8 +840,10 @@ async function pullFromSheet() {
     if (!data.ok) throw new Error(data.error || 'pull failed');
     sales = (data.sales || []).map(normalizeSale);
     inventory = (data.inventory || []).map(normalizeItem);
+    orders = (data.orders || []).map(normalizeOrder);
     saveSales();
     saveInventory();
+    saveOrders();
     render();
     setSyncStatus('connected');
   } catch {
@@ -675,11 +862,14 @@ async function connectSync(url, token) {
 
     const remoteSales = (data.sales || []).map(normalizeSale);
     const remoteInventory = (data.inventory || []).map(normalizeItem);
+    const remoteOrders = (data.orders || []).map(normalizeOrder);
 
     sales = mergeById(remoteSales, sales);
     inventory = mergeById(remoteInventory, inventory);
+    orders = mergeById(remoteOrders, orders);
     saveSales();
     saveInventory();
+    saveOrders();
     render();
 
     await pushToSheet();

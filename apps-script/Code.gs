@@ -17,6 +17,7 @@ var SHEET_ID = ''; // solo necesario con la Opción B (script.new)
 
 var SALES_HEADERS = ['id', 'customer', 'perfume', 'qty', 'price', 'paid', 'date', 'notes'];
 var INVENTORY_HEADERS = ['id', 'perfume', 'cost', 'price', 'unit', 'stock', 'threshold'];
+var ORDERS_HEADERS = ['id', 'customer', 'perfume', 'qty', 'price', 'date', 'notes'];
 
 function getSpreadsheet_() {
   return SHEET_ID ? SpreadsheetApp.openById(SHEET_ID) : SpreadsheetApp.getActiveSpreadsheet();
@@ -74,11 +75,13 @@ function doGet(e) {
 
   var salesSheet = getSheet_('Sales', SALES_HEADERS);
   var inventorySheet = getSheet_('Inventory', INVENTORY_HEADERS);
+  var ordersSheet = getSheet_('Orders', ORDERS_HEADERS);
 
   return jsonResponse_({
     ok: true,
     sales: readRows_(salesSheet, SALES_HEADERS),
     inventory: readRows_(inventorySheet, INVENTORY_HEADERS),
+    orders: readRows_(ordersSheet, ORDERS_HEADERS),
     updatedAt: new Date().toISOString(),
   });
 }
@@ -98,9 +101,11 @@ function doPost(e) {
   try {
     var salesSheet = getSheet_('Sales', SALES_HEADERS);
     var inventorySheet = getSheet_('Inventory', INVENTORY_HEADERS);
+    var ordersSheet = getSheet_('Orders', ORDERS_HEADERS);
 
     if (Array.isArray(body.sales)) writeRows_(salesSheet, SALES_HEADERS, body.sales);
     if (Array.isArray(body.inventory)) writeRows_(inventorySheet, INVENTORY_HEADERS, body.inventory);
+    if (Array.isArray(body.orders)) writeRows_(ordersSheet, ORDERS_HEADERS, body.orders);
 
     return jsonResponse_({ ok: true, updatedAt: new Date().toISOString() });
   } finally {

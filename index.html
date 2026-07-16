@@ -36,6 +36,7 @@
 <nav class="view-tabs">
   <button class="tab active" data-view="sales">Ventas</button>
   <button class="tab" data-view="inventory">Inventario</button>
+  <button class="tab" data-view="orders">Encargos</button>
   <button class="tab" data-view="finance">Finanzas</button>
 </nav>
 
@@ -159,6 +160,47 @@
         <tbody id="inventoryBody"></tbody>
       </table>
       <p class="empty-state" id="invEmptyState">Aún no hay productos en inventario. Toca <strong>+ Nuevo Producto</strong> para agregar uno.</p>
+    </section>
+
+  </section>
+
+  <section class="view" id="viewOrders" hidden>
+
+    <section class="stats">
+      <div class="stat-card stat-cyan">
+        <span class="stat-label">Encargos pendientes</span>
+        <span class="stat-value" id="statOrdersPending">0</span>
+      </div>
+      <div class="stat-card stat-purple">
+        <span class="stat-label">Valor pendiente</span>
+        <span class="stat-value" id="statOrdersValue">$0</span>
+      </div>
+    </section>
+
+    <section class="toolbar">
+      <div class="search-box">
+        <span class="search-icon">⌕</span>
+        <input type="text" id="orderSearchInput" placeholder="Buscar cliente o perfume...">
+      </div>
+    </section>
+
+    <section class="table-wrap">
+      <table id="ordersTable">
+        <thead>
+          <tr>
+            <th>Cliente</th>
+            <th>Perfume</th>
+            <th>Cant.</th>
+            <th>Precio</th>
+            <th>Total</th>
+            <th>Fecha</th>
+            <th>Notas</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="ordersBody"></tbody>
+      </table>
+      <p class="empty-state" id="ordersEmptyState">Aún no hay encargos. Toca <strong>+ Nuevo Encargo</strong> para agregar uno.</p>
     </section>
 
   </section>
@@ -287,6 +329,42 @@
 
     <div class="modal-actions">
       <button type="button" class="btn btn-ghost" id="btnCancelItem">Cancelar</button>
+      <button type="submit" class="btn btn-neon">Guardar</button>
+    </div>
+  </form>
+</div>
+
+<div class="modal-backdrop" id="orderModalBackdrop">
+  <form class="modal" id="orderForm">
+    <h2>Nuevo Encargo</h2>
+
+    <label>Cliente
+      <input type="text" id="oCustomer" required placeholder="Nombre del cliente">
+    </label>
+
+    <label>Perfume
+      <input type="text" id="oPerfume" required placeholder="Ej: Bleu de Chanel 100ml" list="perfumeList">
+    </label>
+
+    <div class="row-2">
+      <label>Cantidad
+        <input type="number" id="oQty" min="1" step="1" value="1" required>
+      </label>
+      <label>Precio unitario
+        <input type="number" id="oPrice" min="0" step="0.01" placeholder="0.00">
+      </label>
+    </div>
+
+    <label>Fecha
+      <input type="date" id="oDate" required>
+    </label>
+
+    <label>Notas
+      <textarea id="oNotes" rows="2" placeholder="Opcional"></textarea>
+    </label>
+
+    <div class="modal-actions">
+      <button type="button" class="btn btn-ghost" id="btnCancelOrder">Cancelar</button>
       <button type="submit" class="btn btn-neon">Guardar</button>
     </div>
   </form>
