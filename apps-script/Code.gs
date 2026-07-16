@@ -27,7 +27,12 @@ function getSheet_(name, headers) {
   var ss = getSpreadsheet_();
   var sheet = ss.getSheetByName(name);
   if (!sheet) {
-    sheet = ss.insertSheet(name);
+    try {
+      sheet = ss.insertSheet(name);
+    } catch (err) {
+      // another concurrent request created it first — just use that one
+      sheet = ss.getSheetByName(name);
+    }
   }
   if (sheet.getLastRow() === 0) {
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
